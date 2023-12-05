@@ -1,5 +1,12 @@
+*.egg-info
+*.pyc
+.env
+.pytest_cache
+/*.egg-info/
+/.cache/
+/.db/
+/.vscode
+/docker-compose.override.yml
+__pycache__
 env
 staticfiles
-.env
-__pycache__
-*.egg-info
