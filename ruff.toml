@@ -12,6 +12,7 @@ exclude = [
     "docker",
     # Ignore test data, which is annoying to properly format.
     "tests/canned_responses/",
+    "src/lando/main/models/__init__.py",
 ]
 
 [isort]
