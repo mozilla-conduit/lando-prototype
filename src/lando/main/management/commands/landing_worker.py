@@ -8,7 +8,8 @@ from io import StringIO
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from lando.main.management.commands import WorkerMixin
-from lando.main.models import LandingJob, LandingJobStatus
+from lando.main.models.base import Repo
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,8 @@ class Command(BaseCommand, WorkerMixin):
 
     def run_job(self, job: LandingJob) -> bool:
         repo = job.target_repo
+        if not repo:
+            repo = Repo.objects.get(name=job.repository_name)
         repo.reset()
         repo.pull()
 
