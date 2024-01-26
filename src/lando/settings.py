@@ -22,9 +22,9 @@ SECRET_KEY = os.getenv(
 )
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(",")
 CSRF_TRUSTED_ORIGINS = os.getenv(
-    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local"
+    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local,https://lando.test"
 ).split(",")
 
 # Application definition
@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "mozilla_django_oidc",
     "lando.main",
     "lando.utils",
+    "lando.ui",
 ]
 
 MIDDLEWARE = [
@@ -56,7 +57,6 @@ ROOT_URLCONF = "lando.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.jinja2.Jinja2",
-        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "environment": "lando.jinja2.environment"
@@ -89,7 +89,7 @@ DATABASES = {
         "NAME": os.getenv("DEFAULT_DB_NAME", "postgres"),
         "USER": os.getenv("DEFAULT_DB_USER", "postgres"),
         "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", "postgres"),
-        "HOST": os.getenv("DEFAULT_DB_HOST", "db"),
+        "HOST": os.getenv("DEFAULT_DB_HOST", "lando.db"),
         "PORT": os.getenv("DEFAULT_DB_PORT", "5432"),
     }
 }
@@ -162,3 +162,10 @@ AUTHENTICATION_BACKENDS = [
 LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
 
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
+DEFAULT_CACHE_KEY_TIMEOUT_SECONDS = 30
+
+ENVIRONMENT = os.getenv("ENVIRONMENT")
+PHABRICATOR_URL = os.getenv("PHABRICATOR_URL")
+PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY")
+
+BUGZILLA_URL = os.getenv("BUGZILLA_URL", "http://bmo.test")

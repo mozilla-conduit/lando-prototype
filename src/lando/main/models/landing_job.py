@@ -180,7 +180,7 @@ class LandingJob(BaseModel):
         not be included in this query.
         """
         revisions = [str(int(r)) for r in revisions]
-        return cls.query.filter(revision_id__in=revisions)
+        return cls.objects.filter(revisions__revision_id__in=revisions)
 
     @classmethod
     def job_queue_query(

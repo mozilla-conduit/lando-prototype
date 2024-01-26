@@ -4,27 +4,24 @@
 import logging
 import urllib.parse
 
-from connexion import problem
-from flask import current_app
-
-from landoapi.commit_message import format_commit_message
-from landoapi.decorators import require_phabricator_api_key
-from landoapi.models.revisions import Revision
-from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import (
+from lando.api.legacy.commit_message import format_commit_message
+from lando.api.legacy.decorators import require_phabricator_api_key
+from lando.main.models.revision import Revision
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.projects import (
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
     project_search,
 )
-from landoapi.repos import get_repos_for_env
-from landoapi.reviews import (
+from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_collated_reviewers,
     reviewers_for_commit_message,
     serialize_reviewers,
 )
-from landoapi.revisions import (
+from lando.api.legacy.revisions import (
     find_title_and_summary_for_display,
     gather_involved_phids,
     get_bugzilla_bug,
@@ -33,33 +30,30 @@ from landoapi.revisions import (
     serialize_diff,
     serialize_status,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.transplants import get_blocker_checks
-from landoapi.users import user_search
-from landoapi.validation import revision_id_to_int
+from lando.api.legacy.transplants import get_blocker_checks
+from lando.api.legacy.users import user_search
+from lando.api.legacy.validation import revision_id_to_int
+
+from django.http import Http404
+from lando import settings
 
 logger = logging.getLogger(__name__)
 
-not_found_problem = problem(
-    404,
-    "Revision not found",
-    "The requested revision does not exist",
-    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-)
 
-
-@require_phabricator_api_key(optional=True)
+# @require_phabricator_api_key(optional=True)
 def get(phab: PhabricatorClient, revision_id: str):
     """Get the stack a revision is part of.
 
     Args:
         revision_id: (string) ID of the revision in 'D{number}' format
     """
+    revision_id = f"D{revision_id}"
     revision_id_int = revision_id_to_int(revision_id)
 
     revision = phab.call_conduit(
@@ -67,15 +61,15 @@ def get(phab: PhabricatorClient, revision_id: str):
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        return not_found_problem
+        raise Http404
 
     nodes, edges = build_stack_graph(revision)
     try:
         stack_data = request_extended_revision_data(phab, list(nodes))
     except ValueError:
-        return not_found_problem
+        raise Http404
 
-    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     release_managers = get_release_managers(phab)
@@ -119,9 +113,9 @@ def get(phab: PhabricatorClient, revision_id: str):
 
     revisions_response = []
     for _phid, phab_revision in stack_data.revisions.items():
-        lando_revision = Revision.query.filter(
-            Revision.revision_id == phab_revision["id"]
-        ).one_or_none()
+        lando_revision = Revision.objects.filter(
+            revision_id=phab_revision["id"]
+        ).first()
         revision_phid = PhabricatorClient.expect(phab_revision, "phid")
         fields = PhabricatorClient.expect(phab_revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")
@@ -129,7 +123,7 @@ def get(phab: PhabricatorClient, revision_id: str):
         diff = stack_data.diffs[diff_phid]
         human_revision_id = "D{}".format(PhabricatorClient.expect(phab_revision, "id"))
         revision_url = urllib.parse.urljoin(
-            current_app.config["PHABRICATOR_URL"], human_revision_id
+            settings.PHABRICATOR_URL, human_revision_id
         )
         secure = revision_is_secure(phab_revision, secure_project_phid)
         commit_description = find_title_and_summary_for_display(
@@ -208,7 +202,7 @@ def get(phab: PhabricatorClient, revision_id: str):
         url = (
             repo.url
             if landing_supported
-            else f"{current_app.config['PHABRICATOR_URL']}/source/{short_name}"
+            else f"{settings.PHABRICATOR_URL}/source/{short_name}"
         )
 
         repositories.append(

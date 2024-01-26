@@ -1,7 +1,3 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 import json
 import logging
 import re
@@ -12,21 +8,22 @@ from typing import (
 )
 
 import requests
-from flask import current_app
 from packaging.version import (
     InvalidVersion,
     Version,
 )
 
-from landoapi import bmo
-from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
-from landoapi.phabricator import PhabricatorClient
-from landoapi.phabricator_patch import patch_to_changes
-from landoapi.repos import (
+from lando import settings
+
+from lando.api.legacy import bmo
+# from lando.api.legacy.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.phabricator_patch import patch_to_changes
+from lando.api.legacy.repos import (
     Repo,
     get_repos_for_env,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     RevisionData,
     RevisionStack,
     build_stack_graph,
@@ -68,9 +65,9 @@ def get_uplift_request_form(revision: dict) -> Optional[str]:
     return bug
 
 
-@cache.cached(
-    key_prefix="uplift-repositories", timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-)
+# @cache.cached(
+#     key_prefix="uplift-repositories", timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
+# )
 def get_uplift_repositories(phab: PhabricatorClient) -> list:
     repos = phab.call_conduit(
         "diffusion.repository.search",
@@ -154,7 +151,7 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
     Raise if the repo is not an uplift repo.
     """
     # Check the target repository needs an approval.
-    repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    repos = get_repos_for_env(settings.ENVIRONMENT)
     repo_shortname = phab.expect(target_repository, "fields", "shortName")
     local_repo = repos.get(repo_shortname)
 

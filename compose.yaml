@@ -17,10 +17,13 @@ services:
     build:
       context: .
     image: lando 
+    stdin_open: true
+    tty: true
     command: bash -c "
       lando migrate &&
       lando collectstatic --no-input &&
-      uwsgi --ini /code/uwsgi.ini"
+      lando runserver 0.0.0.0:80"
+      # uwsgi --ini /code/uwsgi.ini --honour-stdin"
     volumes:
       - ./:/code
       - ./staticfiles:/staticfiles

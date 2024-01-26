@@ -2,5 +2,9 @@ black
 jinja2
 pytest
 pytest-django
+rs-parsepatch
 ruff
 uwsgi
+networkx
+kombu
+python-jose

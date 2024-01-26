@@ -6,10 +6,11 @@ from typing import (
     Callable,
 )
 
-from connexion import problem, request
-from flask import current_app
+from lando import settings
 
-from landoapi.phabricator import PhabricatorClient
+from lando.api.legacy.phabricator import PhabricatorClient
+
+from django.http import HttpResponse
 
 
 class require_phabricator_api_key:
@@ -37,30 +38,18 @@ class require_phabricator_api_key:
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
+            from lando.main.support import request
             api_key = request.headers.get("X-Phabricator-API-Key")
 
             if api_key is None and not self.optional:
-                return problem(
-                    401,
-                    "X-Phabricator-API-Key Required",
-                    (
-                        "Phabricator api key not provided in "
-                        "X-Phabricator-API-Key header"
-                    ),
-                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
-                )
+                return HttpResponse("X-Phabricator-API-Key Required", status=401)
 
             phab = PhabricatorClient(
-                current_app.config["PHABRICATOR_URL"],
-                api_key or current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+                settings.PHABRICATOR_URL,
+                api_key or settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
             )
             if api_key is not None and not phab.verify_api_token():
-                return problem(
-                    403,
-                    "X-Phabricator-API-Key Invalid",
-                    "Phabricator api key is not valid",
-                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-                )
+                return HttpResponse("X-Phabricator-API-Key Invalid", status=403)
 
             if self.provide_client:
                 return f(phab, *args, **kwargs)

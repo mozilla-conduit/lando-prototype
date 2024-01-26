@@ -9,29 +9,30 @@ from collections import namedtuple
 from datetime import datetime, timezone
 
 import requests
-from connexion import ProblemException
-from flask import current_app
 
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.models.revisions import DiffWarning, DiffWarningStatus
-from landoapi.phabricator import (
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.main.support import ProblemException
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from landoapi.repos import Repo, get_repos_for_env
-from landoapi.reviews import calculate_review_extra_state, reviewer_identity
-from landoapi.revisions import (
+from lando.api.legacy.repos import Repo, get_repos_for_env
+from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
+from lando.api.legacy.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
     check_uplift_approval,
     revision_is_secure,
     revision_needs_testing_tag,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     RevisionData,
 )
-from landoapi.transactions import get_inline_comments
+from lando.api.legacy.transactions import get_inline_comments
+
+from lando import settings
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +217,8 @@ def warning_previously_landed(*, revision, diff, **kwargs):
 
     job = (
         LandingJob.revisions_query([revision_id])
-        .filter_by(status=LandingJobStatus.LANDED)
-        .order_by(LandingJob.updated_at.desc())
+        .filter(status=LandingJobStatus.LANDED)
+        .order_by("-updated_at")
         .first()
     )
 
@@ -303,10 +304,10 @@ def warning_revision_missing_testing_tag(
 
 @RevisionWarningCheck(6, "Revision has a diff warning.", True)
 def warning_diff_warning(*, revision, diff, **kwargs):
-    warnings = DiffWarning.query.filter(
-        DiffWarning.revision_id == revision["id"],
-        DiffWarning.diff_id == diff["id"],
-        DiffWarning.status == DiffWarningStatus.ACTIVE,
+    warnings = DiffWarning.objects.filter(
+        revision_id=revision["id"],
+        diff_id=diff["id"],
+        status=DiffWarningStatus.ACTIVE,
     )
     if warnings.count():
         return [w.data for w in warnings]
@@ -321,7 +322,7 @@ def warning_wip_commit_message(*, revision, **kwargs):
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
 def warning_code_freeze(*, repo, **kwargs):
-    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     try:
         repo_details = supported_repos[repo["fields"]["shortName"]]
     except KeyError:
@@ -491,7 +492,7 @@ def check_landing_blockers(
             [PhabricatorClient.expect(r, "id") for r in stack_data.revisions.values()]
         )
         .filter(
-            LandingJob.status.in_(
+            status__in=(
                 (
                     LandingJobStatus.SUBMITTED,
                     LandingJobStatus.DEFERRED,

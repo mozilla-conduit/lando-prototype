@@ -7,20 +7,20 @@ from datetime import datetime
 from typing import Optional
 
 import kombu
-from connexion import ProblemException, problem
-from flask import current_app, g
+from lando.main.support import ProblemException, problem, g
+from lando import settings
 
-from landoapi import auth
-from landoapi.commit_message import format_commit_message
-from landoapi.decorators import require_phabricator_api_key
-from landoapi.models.landing_job import (
+from lando.api.legacy import auth
+from lando.api.legacy.commit_message import format_commit_message
+from lando.api.legacy.decorators import require_phabricator_api_key
+from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_revisions_to_job,
 )
-from landoapi.models.revisions import Revision
-from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import (
+from lando.main.models.revision import Revision
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
     get_release_managers,
@@ -30,46 +30,48 @@ from landoapi.projects import (
     get_testing_tag_project_phids,
     project_search,
 )
-from landoapi.repos import (
+from lando.api.legacy.repos import (
     Repo,
     get_repos_for_env,
 )
-from landoapi.reviews import (
+from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_approved_by_ids,
     get_collated_reviewers,
     reviewers_for_commit_message,
 )
-from landoapi.revisions import (
+from lando.api.legacy.revisions import (
     find_title_and_summary_for_landing,
     gather_involved_phids,
     get_bugzilla_bug,
     revision_is_secure,
     select_diff_author,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     RevisionData,
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.storage import db
-from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplants import (
+from lando.api.legacy.tasks import admin_remove_phab_project
+from lando.api.legacy.transplants import (
     TransplantAssessment,
     check_landing_blockers,
     check_landing_warnings,
     convert_path_id_to_phid,
     get_blocker_checks,
 )
-from landoapi.users import user_search
-from landoapi.validation import (
+from lando.api.legacy.users import user_search
+from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
 
 logger = logging.getLogger(__name__)
+
+# TODO: modify this so that it doesn't require a "global".
+auth0_user = g.auth0_user
 
 
 def _parse_transplant_request(data: dict) -> dict:
@@ -145,7 +147,7 @@ def _assess_transplant_request(
     stack_data = request_extended_revision_data(phab, list(nodes))
     landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
-    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(
@@ -159,7 +161,7 @@ def _assess_transplant_request(
     )
 
     assessment = check_landing_blockers(
-        g.auth0_user, landing_path_phid, stack_data, landable, landable_repos
+        auth0_user, landing_path_phid, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -196,7 +198,7 @@ def _assess_transplant_request(
 
     assessment = check_landing_warnings(
         phab,
-        g.auth0_user,
+        auth0_user,
         to_land,
         repo,
         landing_repo,
@@ -210,7 +212,7 @@ def _assess_transplant_request(
     return (assessment, to_land, landing_repo, stack_data)
 
 
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
+#@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(phab: PhabricatorClient, data: dict):
     landing_path = _parse_transplant_request(data)["landing_path"]
@@ -339,7 +341,7 @@ def post(phab: PhabricatorClient, data: dict):
             approval_reviewers,
             commit_description.summary,
             urllib.parse.urljoin(
-                current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])
+                settings.PHABRICATOR_URL, "D{}".format(revision["id"])
             ),
             flags,
         )[1]
@@ -353,10 +355,10 @@ def post(phab: PhabricatorClient, data: dict):
         lando_revision = Revision.get_from_revision_id(revision_id)
         if not lando_revision:
             lando_revision = Revision(revision_id=revision_id)
-            db.session.add(lando_revision)
+            lando_revision.save()
 
         lando_revision.diff_id = diff_id
-        db.session.commit()
+        lando_revision.save()
 
         revision_reviewers[lando_revision.id] = get_approved_by_ids(
             phab,
@@ -372,10 +374,10 @@ def post(phab: PhabricatorClient, data: dict):
 
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
         lando_revision.set_patch(raw_diff, patch_data)
-        db.session.commit()
+        lando_revision.save()
         lando_revisions.append(lando_revision)
 
-    ldap_username = g.auth0_user.email
+    ldap_username = auth0_user.email
 
     submitted_assessment = TransplantAssessment(
         blocker=(
@@ -383,26 +385,23 @@ def post(phab: PhabricatorClient, data: dict):
         )
     )
     stack_ids = [revision.revision_id for revision in lando_revisions]
-    with db.session.begin_nested():
-        LandingJob.lock_table()
-        if (
-            LandingJob.revisions_query(stack_ids)
-            .filter(
-                LandingJob.status.in_(
-                    [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
-                )
+    # TODO with db.session.begin_nested():
+    # TODO    LandingJob.lock_table()
+    if (
+        LandingJob.revisions_query(stack_ids) .filter(
+            status__in=(
+                [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
             )
-            .count()
-            != 0
-        ):
-            submitted_assessment.raise_if_blocked_or_unacknowledged(None)
+        ).count() != 0
+    ):
+        submitted_assessment.raise_if_blocked_or_unacknowledged(None)
 
-        # Trigger a local transplant
-        job = LandingJob(
-            requester_email=ldap_username,
-            repository_name=landing_repo.short_name,
-            repository_url=landing_repo.url,
-        )
+    # Trigger a local transplant
+    job = LandingJob(
+        requester_email=ldap_username,
+        repository_name=landing_repo.short_name,
+        repository_url=landing_repo.url,
+    )
     add_revisions_to_job(lando_revisions, job)
     logger.info(f"Setting {revision_reviewers} reviewer data on each revision.")
     for revision in lando_revisions:
@@ -411,7 +410,7 @@ def post(phab: PhabricatorClient, data: dict):
     # Submit landing job.
     job.status = LandingJobStatus.SUBMITTED
     job.set_landed_revision_diffs()
-    db.session.commit()
+    job.save()
 
     logger.info(f"New landing job {job.id} created for {landing_repo.tree} repo.")
 
@@ -462,4 +461,4 @@ def get_list(phab: PhabricatorClient, stack_revision_id: str):
 
     landing_jobs = LandingJob.revisions_query(rev_ids).all()
 
-    return [job.serialize() for job in landing_jobs], 200
+    return [job.serialize() for job in landing_jobs]
