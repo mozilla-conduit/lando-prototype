@@ -4,8 +4,10 @@
 import logging
 from typing import Optional
 
-from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
-from landoapi.phabricator import PhabricatorClient, result_list_to_phid_dict
+from lando.api.legacy.phabricator import PhabricatorClient, result_list_to_phid_dict
+
+from django.core.cache import cache
+from lando.settings import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 

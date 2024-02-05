@@ -1,6 +1,3 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 from collections import Counter
 from typing import (
@@ -10,15 +7,13 @@ from typing import (
     Optional,
 )
 
-from landoapi.phabricator import (
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from landoapi.reviews import get_collated_reviewers
-from landoapi.uplift import (
-    stack_uplift_form_submitted,
-)
+from lando.api.legacy.reviews import get_collated_reviewers
+from lando.api.legacy.uplift import stack_uplift_form_submitted
 
 logger = logging.getLogger(__name__)
 

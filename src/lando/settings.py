@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "mozilla_django_oidc",
     "lando.main",
     "lando.utils",
+    "lando.ui",
 ]
 
 MIDDLEWARE = [
@@ -56,7 +57,6 @@ ROOT_URLCONF = "lando.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.jinja2.Jinja2",
-        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "environment": "lando.jinja2.environment"
@@ -162,3 +162,4 @@ AUTHENTICATION_BACKENDS = [
 LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
 
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
+DEFAULT_CACHE_KEY_TIMEOUT_SECONDS = 30
