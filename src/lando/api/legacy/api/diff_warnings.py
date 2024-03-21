@@ -15,7 +15,6 @@ from connexion import problem
 
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
-from lando.api.legacy.storage import db
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,7 @@ def post(data: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
     warning = DiffWarning(**data)
-    db.session.add(warning)
-    db.session.commit()
+    warning.save()
     return warning.serialize(), 201
 
 
@@ -58,7 +56,7 @@ def delete(pk: str):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
     warning.status = DiffWarningStatus.ARCHIVED
-    db.session.commit()
+    warning.save()
     return warning.serialize(), 200
 
 

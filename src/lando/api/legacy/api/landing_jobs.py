@@ -8,7 +8,6 @@ from flask import g
 
 from lando.api import auth
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
-from lando.api.legacy.storage import db
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ def put(landing_job_id: str, data: dict):
 
     if landing_job.status in (LandingJobStatus.SUBMITTED, LandingJobStatus.DEFERRED):
         landing_job.transition_status(LandingJobAction.CANCEL)
-        db.session.commit()
+        landing_job.save()
         return {"id": landing_job.id}, 200
     else:
         raise ProblemException(
