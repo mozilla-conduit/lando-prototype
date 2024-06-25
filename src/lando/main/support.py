@@ -1,4 +1,9 @@
+from unittest.mock import MagicMock
+
 from django.http import HttpResponse
+
+from lando import settings
+from lando.api.legacy.phabricator import PhabricatorClient
 
 
 class ProblemException(Exception):
@@ -33,16 +38,6 @@ def problem(status, title, detail, type=None, instance=None, headers=None, ext=N
     return HttpResponse(content=detail, headers=headers, status=status)
 
 
-request = {
-    "headers": {},
-}
-
-session = {}
-
-
-g = None
-
-
 class FlaskApi:
     @classmethod
     def get_response(self, _problem):
@@ -55,3 +50,11 @@ class ConnexionResponse(HttpResponse):
             kwargs["status"] = kwargs["status_code"]
             del kwargs["status_code"]
             super().__init__(*args, **kwargs)
+
+
+celery = MagicMock()
+
+phab = PhabricatorClient(
+    settings.PHABRICATOR_URL,
+    settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
+)

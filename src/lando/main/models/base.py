@@ -60,6 +60,9 @@ class BaseModel(models.Model):
 
 
 class Repo(BaseModel):
+    def __str__(self):
+        return f"{self.name} ({self.default_branch})"
+
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
     url = models.CharField(max_length=255)
@@ -134,6 +137,9 @@ class Repo(BaseModel):
 
 
 class Worker(BaseModel):
+    def __str__(self):
+        return f"{self.name}"
+
     name = models.CharField(max_length=255, unique=True)
     is_paused = models.BooleanField(default=False)
     is_stopped = models.BooleanField(default=False)

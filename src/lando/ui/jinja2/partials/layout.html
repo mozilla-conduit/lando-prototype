@@ -1,3 +1,11 @@
+{% if request %}
+    {% set user_is_authenticated = request.user.is_authenticated %}
+    {% set user_has_phabricator_token = request.user.profile and request.user.profile.phabricator_api_key %}
+{% else %}
+    {% set user_is_authenticated = False %}
+    {% set user_has_phabricator_token = False %}
+    {% set request = None %}
+{% endif %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -49,9 +57,5 @@
 {% block main %}{% endblock %}
 {% include "partials/footer.html" %}
 
-{% assets "vendor_css" %}<link rel="stylesheet" type="text/css" href="{{ ASSET_URL }}">{% endassets %}
-{% assets "main_css" %}<link rel="stylesheet" type="text/css" href="{{ ASSET_URL }}">{% endassets %}
-{% assets "vendor_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
-{% assets "main_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
 </body>
 </html>
