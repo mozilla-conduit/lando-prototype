@@ -163,7 +163,7 @@ COMPRESS_FILTERS = {
 COMPRESS_ENABLED = True
 
 MEDIA_URL = "media/"
-MEDIA_ROOT = "/mediafiles"
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", "/files")
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
 
@@ -201,3 +201,15 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
+
+if ENVIRONMENT == "dev":
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        },
+    }
+    STATIC_URL = "https://storage.googleapis.com/lando-nonprod-dev-static-files/"
+    GS_BUCKET_NAME = "lando-nonprod-dev-static-files"
+    GS_PROJECT_ID = "moz-fx-lando-nonprod"
+    GS_QUERYSTRING_AUTH = False
+    DEBUG = True

@@ -87,8 +87,14 @@ class Repo(BaseModel):
         if self.is_initialized:
             raise
 
-        self.system_path = str(Path(settings.REPO_ROOT) / self.name)
-        result = self._run("clone", self.pull_path, self.name, cwd=settings.REPO_ROOT)
+        repo_root = Path(settings.REPO_ROOT)
+        repo_root.mkdir(parents=True, exist_ok=True)
+        self.system_path = repo_root / self.name
+
+        try:
+            result = self._run("clone", self.pull_path, self.name, cwd=settings.REPO_ROOT)
+        except FileNotFoundError:
+            self.system_path
         if result.returncode == 0:
             self.is_initialized = True
             self.save()
