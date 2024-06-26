@@ -201,3 +201,13 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
+
+if ENVIRONMENT == "dev":
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        },
+    }
+    STATIC_URL = "https://storage.googleapis.com/lando-nonprod-dev-static-files/"
+    GS_BUCKET_NAME = "lando-nonprod-dev-static-files"
+    GS_PROJECT_ID = "moz-fx-lando-nonprod"
